@@ -6,10 +6,10 @@ import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
 } from '@simplewebauthn/server';
-import Credential from './model/Credential.ts';
-import User from './model/User.ts';
+import Credential from './model/Credential.js';
+import User from './model/User.js';
 import mongoose from 'mongoose';
-import * as config from './config.ts'
+import * as config from './config.js'
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -20,6 +20,8 @@ const origin = `https://${rpID}`;
 
 mongoose.connect(config.MONGO_URL, {
   dbName: config.MONGO_DB_NAME,
+  user: config.MONGO_USERNAME,
+  pass: config.MONGO_PASSWORD
 })
   .then(() => console.log("MongoDB connected successfully"))
   .catch((err) => console.log("MongoDB error: ", err))
