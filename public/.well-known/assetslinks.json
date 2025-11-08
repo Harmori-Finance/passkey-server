@@ -5,7 +5,7 @@
     ],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.congktx.app",
+      "package_name": "com.anonymous.cryptobank",
       "sha256_cert_fingerprints": [
         "22:AD:AA:BF:2D:F3:72:D2:30:26:60:0A:72:18:1F:79:6C:DD:BE:D3:F7:FE:A4:DC:11:A5:19:0B:D5:E1:32:C3"
       ]
