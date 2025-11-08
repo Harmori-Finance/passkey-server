@@ -13,9 +13,9 @@ import * as config from './config.js'
 import path from "path";
 import { fileURLToPath } from "url";
 
-const rpName = 'Passkey Demo App';
-const rpID = 'unmumbling-untechnical-andera.ngrok-free.dev';
 const port = 8888;
+const rpName = 'Harmoni App';
+const rpID = 'passkey-server-sandy.vercel.app';
 const origin = `https://${rpID}`;
 
 mongoose.connect(config.MONGO_URL, {
@@ -35,11 +35,19 @@ const __dirname = path.dirname(__filename);
 
 app.use("/.well-known", express.static(path.join(__dirname, "public/.well-known")));
 
-app.post('/generate-registration-options', async (req, res) => {
-  const { userId } = req.body;
+app.post('/register/challenge', async (req, res) => {
+  const { username } = req.body;
 
-  if (!userId) {
-    return res.status(400).json({ error: 'Missing userId' });
+  if (!username) {
+    return res.status(400).json({ error: 'Missing username' });
+  }
+
+  const user = await User.findOne({ username: username });
+  let userId = '';
+  if (!user) {
+    await User.create({ username: username })
+  } else {
+    userId = user.id ?? '';
   }
 
   const userCredentials = await Credential.find({ userId: userId });
@@ -47,7 +55,7 @@ app.post('/generate-registration-options', async (req, res) => {
   const options = await generateRegistrationOptions({
     rpName,
     rpID,
-    userName: userId,
+    userName: username,
     authenticatorSelection: {
       authenticatorAttachment: 'platform',
       userVerification: "required",
@@ -60,15 +68,15 @@ app.post('/generate-registration-options', async (req, res) => {
   });
 
   await User.findOneAndUpdate(
-    { id: userId },
-    { currentChallenge: options.challenge },
+    { username: username },
+    { id: options.user.id, currentChallenge: options.challenge },
     { upsert: true }
   )
 
   res.status(200).json(options);
 });
 
-app.post('/verify-registration', async (req, res) => {
+app.post('/register/verify', async (req, res) => {
   const { userId, credential } = req.body;
 
   const user = await User.findOne({ id: userId })
