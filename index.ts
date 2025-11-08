@@ -10,8 +10,8 @@ import Credential from './model/Credential.js';
 import User from './model/User.js';
 import mongoose from 'mongoose';
 import * as config from './config.js'
-import path from "path";
-import { fileURLToPath } from "url";
+// import path from "path";
+// import { fileURLToPath } from "url";
 
 const port = 8888;
 const rpName = 'Harmoni App';
@@ -30,10 +30,33 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
 
-app.use("/.well-known", express.static(path.join(__dirname, "public/.well-known")));
+// app.use("/.well-known", express.static(path.join(__dirname, "public/.well-known")));
+
+app.get('/.well-known/assetlinks.json', (_req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+
+  // Nội dung assetlinks.json (thay bằng thông tin thật của bạn)
+  const assetLinks = [
+    {
+      "relation": [
+        "delegate_permission/common.handle_all_urls",
+        "delegate_permission/common.get_login_creds"
+      ],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.anonymous.cryptobank",
+        "sha256_cert_fingerprints": [
+          "22:AD:AA:BF:2D:F3:72:D2:30:26:60:0A:72:18:1F:79:6C:DD:BE:D3:F7:FE:A4:DC:11:A5:19:0B:D5:E1:32:C3"
+        ]
+      }
+    }
+  ];
+
+  res.json(assetLinks);
+});
 
 app.post('/register/challenge', async (req, res) => {
   const { username } = req.body;
