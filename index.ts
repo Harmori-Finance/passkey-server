@@ -20,8 +20,6 @@ const origin = `https://${rpID}`;
 
 mongoose.connect(config.MONGO_URL, {
   dbName: config.MONGO_DB_NAME,
-  user: config.MONGO_USERNAME,
-  pass: config.MONGO_PASSWORD
 })
   .then(() => console.log("MongoDB connected successfully"))
   .catch((err) => console.log("MongoDB error: ", err))
