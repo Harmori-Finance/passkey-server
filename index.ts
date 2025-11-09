@@ -6,17 +6,21 @@ import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
 } from '@simplewebauthn/server';
-import Credential from './model/Credential.js';
-import User from './model/User.js';
+import Credential from './model/Credential';
+import User from './model/User';
 import mongoose from 'mongoose';
-import * as config from './config.js'
+import * as config from './config'
+import base64url from 'base64url'
+import { Connection, sendAndConfirmTransaction } from '@solana/web3.js';
+import { LazorkitClient } from './contract-integration/index';
+import { createProviderFromMnemonic, extractCompressedPubkey } from './utils';
 // import path from "path";
 // import { fileURLToPath } from "url";
 
 const port = 8888;
-const rpName = 'Harmoni App';
-const rpID = 'passkey-server-sandy.vercel.app';
-const origin = `https://${rpID}`;
+const rpName = 'android_app';
+const rpID = 'unmumbling-untechnical-andera.ngrok-free.dev';
+const sha256_cert_fingerprints = "22:AD:AA:BF:2D:F3:72:D2:30:26:60:0A:72:18:1F:79:6C:DD:BE:D3:F7:FE:A4:DC:11:A5:19:0B:D5:E1:32:C3"
 
 mongoose.connect(config.MONGO_URL, {
   dbName: config.MONGO_DB_NAME,
@@ -38,7 +42,6 @@ app.use(cors());
 app.get('/.well-known/assetlinks.json', (_req, res) => {
   res.setHeader('Content-Type', 'application/json');
 
-  // Nội dung assetlinks.json (thay bằng thông tin thật của bạn)
   const assetLinks = [
     {
       "relation": [
@@ -49,7 +52,7 @@ app.get('/.well-known/assetlinks.json', (_req, res) => {
         "namespace": "android_app",
         "package_name": "com.anonymous.cryptobank",
         "sha256_cert_fingerprints": [
-          "22:AD:AA:BF:2D:F3:72:D2:30:26:60:0A:72:18:1F:79:6C:DD:BE:D3:F7:FE:A4:DC:11:A5:19:0B:D5:E1:32:C3"
+          sha256_cert_fingerprints
         ]
       }
     }
@@ -65,19 +68,12 @@ app.post('/register/challenge', async (req, res) => {
     return res.status(400).json({ error: 'Missing username' });
   }
 
-  const user = await User.findOne({ username: username });
-  let userId = '';
-  if (!user) {
-    await User.create({ username: username })
-  } else {
-    userId = user.id ?? '';
-  }
+  const userCredentials = await Credential.find({ username: username });
 
-  const userCredentials = await Credential.find({ userId: userId });
-
-  const options = await generateRegistrationOptions({
+  const optionsGen = await generateRegistrationOptions({
     rpName,
     rpID,
+    userDisplayName: username,
     userName: username,
     authenticatorSelection: {
       authenticatorAttachment: 'platform',
@@ -90,9 +86,20 @@ app.post('/register/challenge', async (req, res) => {
     })),
   });
 
+  const options: any = {
+    challenge: optionsGen.challenge,
+    user: optionsGen.user,
+    rp: optionsGen.rp,
+    authenticatorSelection: {
+      userVerification: "required",
+      residentKey: "required",
+    },
+    pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+  }
+
   await User.findOneAndUpdate(
     { username: username },
-    { id: options.user.id, currentChallenge: options.challenge },
+    { currentChallenge: options.challenge },
     { upsert: true }
   )
 
@@ -100,9 +107,9 @@ app.post('/register/challenge', async (req, res) => {
 });
 
 app.post('/register/verify', async (req, res) => {
-  const { userId, credential } = req.body;
+  const { username, credential } = req.body;
 
-  const user = await User.findOne({ id: userId })
+  const user = await User.findOne({ username: username })
 
   if (!user || !user.currentChallenge) {
     return res.status(400).json({ error: 'User not found or no challenge' });
@@ -112,7 +119,10 @@ app.post('/register/verify', async (req, res) => {
     const verification = await verifyRegistrationResponse({
       response: credential,
       expectedChallenge: user.currentChallenge,
-      expectedOrigin: origin,
+      expectedOrigin: [
+        `https://${rpID}`,
+        `android:apk-key-hash:${base64url(Buffer.from(sha256_cert_fingerprints.replace(/:/g, ''), 'hex'))}`
+      ],
       expectedRPID: rpID,
       requireUserVerification: true,
     });
@@ -124,7 +134,7 @@ app.post('/register/verify', async (req, res) => {
         id: credentialID,
         publicKey: Buffer.from(credentialPublicKey).toString('base64url').toString(),
         counter,
-        userId: user.id,
+        username: username,
       };
 
       await Credential.findOneAndUpdate(
@@ -134,7 +144,7 @@ app.post('/register/verify', async (req, res) => {
       )
 
       await User.findOneAndUpdate(
-        { id: userId },
+        { username: username },
         { currentChallenge: null },
         { upsert: true }
       )
@@ -144,9 +154,53 @@ app.post('/register/verify', async (req, res) => {
 
     res.status(400).json({ error: 'Verification failed' });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.log(error);
+    res.status(500).json({ error: error.toString() });
   }
 });
+
+app.post('/create-smart-wallet', async (req, res) => {
+  try {
+    const { username } = req.body;
+
+    const credential = await Credential.findOne({ username: username });
+
+    if (!credential) {
+      res.status(400).json({ error: "User credential not exist" });
+    }
+
+    const provider = await createProviderFromMnemonic(config.MNEMONIC, config.RPC_URL_SOLANA)
+    const connection = new Connection(config.RPC_URL_SOLANA);
+    const lazorkitClient = new LazorkitClient(connection);
+    const { transaction,
+      smartWalletId,
+      smartWallet
+    } = await lazorkitClient.createSmartWalletTransaction({
+      payer: provider.keypair.publicKey,
+      credentialIdBase64: credential.id,
+      passkeyPubkey: extractCompressedPubkey(credential.publicKey) as any,
+    });
+
+    console.log(smartWallet, smartWalletId)
+
+    transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+    transaction.feePayer = provider.keypair.publicKey;
+
+    transaction.sign(provider.keypair);
+
+    const txid = await sendAndConfirmTransaction(connection, transaction, [provider.keypair]);
+    console.log("Sent create-smart-wallet:", txid);
+
+    await User.findOneAndUpdate(
+      { username: username },
+      { smartWallet: String(smartWallet), smartWalletId: Number(smartWalletId) }
+    )
+    res.status(200).json({ message: 'ok' })
+  } catch (err: any) {
+    console.log(err);
+    res.status(500).json({ message: 'vcl' })
+  }
+})
 
 app.post('/generate-authentication-options', async (req, res) => {
   const options = await generateAuthenticationOptions({
@@ -175,7 +229,7 @@ app.post('/verify-authentication', async (req, res) => {
     return res.status(400).json({ error: 'Credential not found' });
   }
 
-  const user = await User.findOne({ id: savedCredential.userId })
+  const user = await User.findOne({ username: savedCredential.username })
   if (!user) {
     return res.status(400).json({ error: 'User for credential not found' });
   }
@@ -184,7 +238,10 @@ app.post('/verify-authentication', async (req, res) => {
     const verification = await verifyAuthenticationResponse({
       response: credential,
       expectedChallenge: expectedChallenge,
-      expectedOrigin: origin,
+      expectedOrigin: [
+        `https://${rpID}`,
+        `android:apk-key-hash:${base64url(Buffer.from(sha256_cert_fingerprints.replace(/:/g, ''), 'hex'))}`
+      ],
       expectedRPID: rpID,
       credential: {
         id: savedCredential.id,
@@ -216,5 +273,4 @@ app.post('/verify-authentication', async (req, res) => {
 app.listen(port, () => {
   console.log(`Server demo passkey đang chạy tại http://localhost:${port}`);
   console.log(`RP ID: ${rpID}`);
-  console.log(`Origin: ${origin}`);
 });

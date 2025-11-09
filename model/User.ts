@@ -1,15 +1,17 @@
 import mongoose from "mongoose";
 
 interface IUser {
-  id: string;
   username: string;
   currentChallenge?: string;
+  smartWallet: string;
+  smartWalletId: number;
 }
 
 export const UserSchema = new mongoose.Schema<IUser>({
-  id: { type: String },
-  username: { type: String },
-  currentChallenge: { type: String }
+  username: { type: String, required: true },
+  currentChallenge: { type: String },
+  smartWallet: { type: String },
+  smartWalletId: { type: Number }
 })
 
 export default mongoose.model<IUser>("User", UserSchema, "user");

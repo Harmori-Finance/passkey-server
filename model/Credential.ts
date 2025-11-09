@@ -4,14 +4,14 @@ interface ICredential {
   id: string;
   publicKey: string;
   counter: number;
-  userId: string;
+  username: string;
 }
 
 const CredentialSchema = new mongoose.Schema<ICredential>({
   id: { type: String },
   publicKey: { type: String },
   counter: { type: Number },
-  userId: { type: String }
+  username: { type: String }
 })
 
 export default mongoose.model<ICredential>("Credential", CredentialSchema, "credential")
