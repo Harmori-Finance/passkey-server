@@ -15,15 +15,11 @@ import { Connection, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, Sys
 import { LazorkitClient } from './contract-integration/index';
 import { createProviderFromMnemonic, extractCompressedPubkey } from './utils';
 import { BN } from 'bn.js';
-// import path from "path";
-// import { fileURLToPath } from "url";
 
 const port = 8888;
 const rpName = 'android_app';
 const rpID = 'unmumbling-untechnical-andera.ngrok-free.dev';
-// const sha256_cert_fingerprints = "20:26:93:1E:8F:93:70:5B:8B:B8:56:49:98:23:03:C0:CF:3B:9E:8A:95:25:BD:65:AB:F7:E2:C2:47:8A:2A:70"
-// const sha256_cert_fingerprints = "22:AD:AA:BF:2D:F3:72:D2:30:26:60:0A:72:18:1F:79:6C:DD:BE:D3:F7:FE:A4:DC:11:A5:19:0B:D5:E1:32:C3"
-const sha256_cert_fingerprints = "FB:BB:9A:07:19:C4:AC:A7:46:EA:8A:FA:01:4F:31:45:67:EC:DA:DF:BF:74:D7:BE:A2:CF:79:01:75:49:CB:87"
+const sha256_cert_fingerprints = config.SHA256_CERT_FINGERPRINTS
 
 mongoose.connect(config.MONGO_URL, {
   dbName: config.MONGO_DB_NAME,
@@ -36,11 +32,6 @@ mongoose.connect(config.MONGO_URL, {
 const app = express();
 app.use(express.json());
 app.use(cors());
-
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
-
-// app.use("/.well-known", express.static(path.join(__dirname, "public/.well-known")));
 
 app.get('/.well-known/assetlinks.json', (_req, res) => {
   res.setHeader('Content-Type', 'application/json');

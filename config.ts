@@ -9,3 +9,5 @@ export const MONGO_PASSWORD = process.env.MONGO_PASSWORD ?? "";
 
 export const MNEMONIC = process.env.MNEMONIC ?? "";
 export const RPC_URL_SOLANA = process.env.RPC_URL_SOLANA ?? "";
+
+export const SHA256_CERT_FINGERPRINTS = process.env.SHA256_CERT_FINGERPRINTS ?? "";
