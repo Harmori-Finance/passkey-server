@@ -1,5 +1,5 @@
 {
-  "address": "GLvpg57kZNapHhtmL4Xn5GNhQ744DgQB24nEk9SjV8tE",
+  "address": "BiE9vSdz9MidUiyjVYsu3PG4C1fbPZ8CVPADA9jRfXw7",
   "metadata": {
     "name": "default_policy",
     "version": "0.1.0",
@@ -21,9 +21,8 @@
       ],
       "accounts": [
         {
-          "name": "payer",
-          "writable": true,
-          "signer": true
+          "name": "smart_wallet",
+          "writable": true
         },
         {
           "name": "wallet_device",
@@ -35,28 +34,6 @@
         },
         {
           "name": "policy",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  108,
-                  105,
-                  99,
-                  121
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "wallet_device"
-              }
-            ]
-          }
-        },
-        {
-          "name": "new_policy",
           "writable": true,
           "pda": {
             "seeds": [
@@ -73,21 +50,36 @@
               },
               {
                 "kind": "account",
-                "path": "new_wallet_device"
+                "path": "smart_wallet"
               }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "wallet_id",
+          "type": "u64"
+        },
+        {
+          "name": "passkey_public_key",
+          "type": {
+            "array": [
+              "u8",
+              33
             ]
           }
         },
         {
-          "name": "lazorkit",
-          "address": "8oCYt9kQ5t6ZRhsXLH8x3i6HTaTqrjDrLQ6PP1hUZfya"
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
+          "name": "new_passkey_public_key",
+          "type": {
+            "array": [
+              "u8",
+              33
+            ]
+          }
         }
-      ],
-      "args": []
+      ]
     },
     {
       "name": "check_policy",
@@ -111,35 +103,67 @@
         },
         {
           "name": "policy",
-          "writable": true
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "smart_wallet"
+              }
+            ]
+          }
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "wallet_id",
+          "type": "u64"
+        },
+        {
+          "name": "passkey_public_key",
+          "type": {
+            "array": [
+              "u8",
+              33
+            ]
+          }
+        }
+      ]
     },
     {
-      "name": "init_policy",
+      "name": "destroy_policy",
       "discriminator": [
-        45,
+        254,
         234,
-        110,
-        100,
-        209,
-        146,
-        191,
-        86
+        136,
+        124,
+        90,
+        28,
+        94,
+        138
       ],
       "accounts": [
         {
-          "name": "payer",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "smart_wallet"
+          "name": "smart_wallet",
+          "writable": true
         },
         {
           "name": "wallet_device",
           "signer": true
+        },
+        {
+          "name": "new_wallet_device",
+          "writable": true
         },
         {
           "name": "policy",
@@ -159,21 +183,167 @@
               },
               {
                 "kind": "account",
-                "path": "wallet_device"
+                "path": "smart_wallet"
               }
             ]
           }
+        }
+      ],
+      "args": [
+        {
+          "name": "wallet_id",
+          "type": "u64"
         },
         {
-          "name": "lazorkit",
-          "address": "8oCYt9kQ5t6ZRhsXLH8x3i6HTaTqrjDrLQ6PP1hUZfya"
+          "name": "passkey_public_key",
+          "type": {
+            "array": [
+              "u8",
+              33
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "init_policy",
+      "discriminator": [
+        45,
+        234,
+        110,
+        100,
+        209,
+        146,
+        191,
+        86
+      ],
+      "accounts": [
+        {
+          "name": "smart_wallet",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "wallet_device",
+          "writable": true
+        },
+        {
+          "name": "policy",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "smart_wallet"
+              }
+            ]
+          }
         },
         {
           "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "wallet_id",
+          "type": "u64"
+        },
+        {
+          "name": "passkey_public_key",
+          "type": {
+            "array": [
+              "u8",
+              33
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "remove_device",
+      "discriminator": [
+        42,
+        19,
+        175,
+        5,
+        67,
+        100,
+        238,
+        14
+      ],
+      "accounts": [
+        {
+          "name": "smart_wallet",
+          "writable": true
+        },
+        {
+          "name": "wallet_device",
+          "signer": true
+        },
+        {
+          "name": "rm_wallet_device",
+          "writable": true
+        },
+        {
+          "name": "policy",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "smart_wallet"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "wallet_id",
+          "type": "u64"
+        },
+        {
+          "name": "passkey_public_key",
+          "type": {
+            "array": [
+              "u8",
+              33
+            ]
+          }
+        },
+        {
+          "name": "remove_passkey_public_key",
+          "type": {
+            "array": [
+              "u8",
+              33
+            ]
+          }
+        }
+      ]
     }
   ],
   "accounts": [
@@ -214,6 +384,16 @@
       "code": 6001,
       "name": "Unauthorized",
       "msg": "Unauthorized to access smart wallet"
+    },
+    {
+      "code": 6002,
+      "name": "WalletDeviceAlreadyInPolicy",
+      "msg": "Wallet device already in policy"
+    },
+    {
+      "code": 6003,
+      "name": "WalletDeviceNotInPolicy",
+      "msg": "Wallet device not in policy"
     }
   ],
   "types": [
@@ -227,8 +407,13 @@
             "type": "pubkey"
           },
           {
-            "name": "wallet_device",
-            "type": "pubkey"
+            "name": "list_wallet_device",
+            "docs": [
+              "List of wallet devices associated with the smart wallet"
+            ],
+            "type": {
+              "vec": "pubkey"
+            }
           }
         ]
       }
@@ -236,15 +421,30 @@
     {
       "name": "WalletDevice",
       "docs": [
-        "Account that stores a wallet_device (passkey) used to authenticate to a smart wallet"
+        "Account that stores a wallet device (passkey) for smart wallet authentication",
+        "",
+        "Each wallet device represents a WebAuthn passkey that can be used to authenticate",
+        "transactions for a specific smart wallet. Multiple devices can be associated with",
+        "a single smart wallet for enhanced security and convenience.",
+        "",
+        "Memory layout optimized for better cache performance:",
+        "- Group related fields together",
+        "- Align fields to natural boundaries"
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "passkey_pubkey",
+            "name": "bump",
             "docs": [
-              "The public key of the passkey for this wallet_device that can authorize transactions"
+              "Bump seed for PDA derivation and verification (1 byte)"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "passkey_public_key",
+            "docs": [
+              "Public key of the WebAuthn passkey for transaction authorization (33 bytes)"
             ],
             "type": {
               "array": [
@@ -254,25 +454,18 @@
             }
           },
           {
-            "name": "smart_wallet",
+            "name": "smart_wallet_address",
             "docs": [
-              "The smart wallet this wallet_device belongs to"
+              "Smart wallet address this device is associated with (32 bytes)"
             ],
             "type": "pubkey"
           },
           {
             "name": "credential_id",
             "docs": [
-              "The credential ID this wallet_device belongs to"
+              "Unique credential ID from WebAuthn registration (variable length, max 256 bytes)"
             ],
             "type": "bytes"
-          },
-          {
-            "name": "bump",
-            "docs": [
-              "Bump seed for PDA derivation"
-            ],
-            "type": "u8"
           }
         ]
       }

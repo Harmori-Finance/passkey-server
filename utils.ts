@@ -1,20 +1,39 @@
-import { Connection, Keypair } from "@solana/web3.js";
+import { Connection, Keypair, Transaction, VersionedTransaction } from "@solana/web3.js";
 import * as bip39 from "bip39";
 import { derivePath } from "ed25519-hd-key";
 import * as cbor from "cbor";
+import { AnchorProvider } from "@coral-xyz/anchor";
 
-export async function createProviderFromMnemonic(
-  mnemonic: string,
-  rpcUrl: string
-) {
+export async function createProviderFromMnemonic(mnemonic: string, rpcUrl: string) {
   const seed = await bip39.mnemonicToSeed(mnemonic);
-  const path = "m/44'/501'/0'/0'"; // chuẩn Solana derivation path
+  const path = "m/44'/501'/0'/0'";
   const derivedSeed = derivePath(path, seed.toString("hex")).key;
   const keypair = Keypair.fromSeed(derivedSeed);
 
   const connection = new Connection(rpcUrl, "confirmed");
 
-  return { keypair, connection };
+  const wallet = {
+    publicKey: keypair.publicKey,
+    signTransaction: async (tx: Transaction | VersionedTransaction) => {
+      if (tx instanceof VersionedTransaction) {
+        tx.sign([keypair]);
+      } else if (tx instanceof Transaction) {
+        tx.partialSign(keypair);
+      } else {
+        throw new Error("Unsupported transaction type");
+      }
+      return tx;
+    },
+    signAllTransactions: async (txs: any[]) => {
+      return txs.map((tx) => {
+        if ("sign" in tx) tx.sign([keypair]);
+        else if ("partialSign" in tx) tx.partialSign(keypair);
+        return tx;
+      });
+    },
+  };
+
+  return { wallet, keypair, connection };
 }
 
 export function base64urlToBuffer(base64url: string): Buffer {

@@ -11,16 +11,19 @@ import User from './model/User';
 import mongoose from 'mongoose';
 import * as config from './config'
 import base64url from 'base64url'
-import { Connection, sendAndConfirmTransaction } from '@solana/web3.js';
+import { Connection, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction } from '@solana/web3.js';
 import { LazorkitClient } from './contract-integration/index';
 import { createProviderFromMnemonic, extractCompressedPubkey } from './utils';
+import { BN } from 'bn.js';
 // import path from "path";
 // import { fileURLToPath } from "url";
 
 const port = 8888;
 const rpName = 'android_app';
 const rpID = 'unmumbling-untechnical-andera.ngrok-free.dev';
-const sha256_cert_fingerprints = "22:AD:AA:BF:2D:F3:72:D2:30:26:60:0A:72:18:1F:79:6C:DD:BE:D3:F7:FE:A4:DC:11:A5:19:0B:D5:E1:32:C3"
+// const sha256_cert_fingerprints = "20:26:93:1E:8F:93:70:5B:8B:B8:56:49:98:23:03:C0:CF:3B:9E:8A:95:25:BD:65:AB:F7:E2:C2:47:8A:2A:70"
+// const sha256_cert_fingerprints = "22:AD:AA:BF:2D:F3:72:D2:30:26:60:0A:72:18:1F:79:6C:DD:BE:D3:F7:FE:A4:DC:11:A5:19:0B:D5:E1:32:C3"
+const sha256_cert_fingerprints = "FB:BB:9A:07:19:C4:AC:A7:46:EA:8A:FA:01:4F:31:45:67:EC:DA:DF:BF:74:D7:BE:A2:CF:79:01:75:49:CB:87"
 
 mongoose.connect(config.MONGO_URL, {
   dbName: config.MONGO_DB_NAME,
@@ -172,15 +175,22 @@ app.post('/create-smart-wallet', async (req, res) => {
     const provider = await createProviderFromMnemonic(config.MNEMONIC, config.RPC_URL_SOLANA)
     const connection = new Connection(config.RPC_URL_SOLANA);
     const lazorkitClient = new LazorkitClient(connection);
-    const { transaction,
+    let { transaction,
       smartWalletId,
       smartWallet
-    } = await lazorkitClient.createSmartWalletTransaction({
-      payer: provider.keypair.publicKey,
-      credentialIdBase64: credential.id,
-      passkeyPubkey: extractCompressedPubkey(credential.publicKey) as any,
-    });
+    } = await lazorkitClient.createSmartWalletTxn(
+      {
+        payer: provider.keypair.publicKey,
+        credentialIdBase64: credential.id,
+        passkeyPublicKey: extractCompressedPubkey(credential.publicKey) as any,
+        amount: new BN(0)
+      },
+      {
+        useVersionedTransaction: false
+      }
+    );
 
+    transaction = transaction as Transaction;
     console.log(smartWallet, smartWalletId)
 
     transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
@@ -202,26 +212,69 @@ app.post('/create-smart-wallet', async (req, res) => {
   }
 })
 
-app.post('/generate-authentication-options', async (req, res) => {
-  const options = await generateAuthenticationOptions({
-    rpID,
-    allowCredentials: [],
-    userVerification: 'preferred',
-  });
+app.post('/send-SOL/options', async (req, res) => {
+  const { username } = req.body;
 
-  (app as any).currentChallenge = options.challenge;
+  const user = await User.findOne({ username: username })
+  const userCredentials = await Credential.find({ username: username })
 
-  res.status(200).json(options);
-});
+  if (userCredentials.length === 0) res.status(400).json({ error: 'not credential' })
 
-app.post('/verify-authentication', async (req, res) => {
-  const { credential } = req.body;
+  const provider = await createProviderFromMnemonic(config.MNEMONIC, config.RPC_URL_SOLANA)
+  const connection = new Connection(config.RPC_URL_SOLANA);
+  const lazorkitClient = new LazorkitClient(connection);
 
-  const expectedChallenge = (app as any).currentChallenge;
+  const message = await lazorkitClient.buildAuthorizationMessage({
+    payer: provider.keypair.publicKey,
+    smartWallet: new PublicKey(user.smartWallet),
+    passkeyPublicKey: extractCompressedPubkey(userCredentials[0].publicKey) as any,
+    action: {
+      type: 'execute_transaction',
+      args: {
+        policyInstruction: null,
+        cpiInstruction: SystemProgram.transfer({
+          fromPubkey: new PublicKey(user.smartWallet),
+          toPubkey: new PublicKey('MTSLZDJppGh6xUcnrSSbSQE5fgbvCtQ496MqgQTv8c1'),
+          lamports: 0.1 * LAMPORTS_PER_SOL,
+        }),
+      },
+    } as any
+  })
 
-  if (!expectedChallenge) {
-    return res.status(400).json({ error: 'No challenge found' });
+  let allowCredentials: any[] = [];
+  for (let cred of userCredentials) {
+    allowCredentials.push({
+      id: cred.id,
+      transports: ['internal']
+    })
   }
+
+  const optionsGen = await generateAuthenticationOptions({
+    rpID,
+    allowCredentials,
+    userVerification: 'preferred',
+    challenge: message.toString(),
+    timeout: 60000
+  })
+
+  const options = {
+    challenge: optionsGen.challenge,
+    timeout: optionsGen.timeout,
+    rpId: optionsGen.rpId,
+    allowCredentials: optionsGen.allowCredentials,
+    userVerification: optionsGen.userVerification,
+  }
+
+  await User.findOneAndUpdate(
+    { username: username },
+    { currentChallenge: options.challenge }
+  )
+
+  res.status(200).json(options)
+})
+
+app.post('/send-SOL/verify', async (req, res) => {
+  const { credential } = req.body;
 
   const savedCredential = await Credential.findOne({ id: credential.id });
 
@@ -234,41 +287,64 @@ app.post('/verify-authentication', async (req, res) => {
     return res.status(400).json({ error: 'User for credential not found' });
   }
 
-  try {
-    const verification = await verifyAuthenticationResponse({
-      response: credential,
-      expectedChallenge: expectedChallenge,
-      expectedOrigin: [
-        `https://${rpID}`,
-        `android:apk-key-hash:${base64url(Buffer.from(sha256_cert_fingerprints.replace(/:/g, ''), 'hex'))}`
-      ],
-      expectedRPID: rpID,
-      credential: {
-        id: savedCredential.id,
-        publicKey: Buffer.from(savedCredential.publicKey, 'base64url'),
-        counter: savedCredential.counter,
-      },
-      requireUserVerification: true,
-    });
+  const expectedChallenge = user.currentChallenge;
 
-    if (verification.verified) {
-      savedCredential.counter = verification.authenticationInfo.newCounter;
-      await Credential.findOneAndUpdate(
-        { id: savedCredential.id },
-        savedCredential,
-        { upsert: true }
-      )
-
-      delete (app as any).currentChallenge;
-
-      return res.json({ verified: true, user: { id: user.id } });
-    }
-
-    res.status(400).json({ error: 'Login verification failed' });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  if (!expectedChallenge) {
+    return res.status(400).json({ error: 'No challenge found' });
   }
-});
+
+
+  const verification = await verifyAuthenticationResponse({
+    response: credential,
+    expectedChallenge: expectedChallenge,
+    expectedOrigin: [
+      `https://${rpID}`,
+      `android:apk-key-hash:${base64url(Buffer.from(sha256_cert_fingerprints.replace(/:/g, ''), 'hex'))}`
+    ],
+    expectedRPID: rpID,
+    credential: {
+      id: savedCredential.id,
+      publicKey: Buffer.from(savedCredential.publicKey, 'base64url'),
+      counter: savedCredential.counter,
+    },
+    requireUserVerification: true,
+  });
+
+  if (!verification.verified) res.status(400).json({ error: "not verify" })
+
+  const provider = await createProviderFromMnemonic(config.MNEMONIC, config.RPC_URL_SOLANA)
+  const connection = new Connection(config.RPC_URL_SOLANA);
+  const lazorkitClient = new LazorkitClient(connection);
+
+  // const transaction = await lazorkitClient.executeTransactionWithAuth({
+  //   payer: provider.keypair.publicKey,
+  //   smartWallet: new PublicKey(user.smartWallet),
+  //   passkeySignature: {
+  //     passkeyPubkey: extractCompressedPubkey(savedCredential.publicKey) as any,
+  //     signature64: credential.response.signature,
+  //     clientDataJsonRaw64: credential.response.clientDataJSON,
+  //     authenticatorDataRaw64: credential.response.authenticatorData,
+  //   },
+  //   policyInstruction: null,
+  //   cpiInstruction: SystemProgram.transfer({
+  //     fromPubkey: new PublicKey(user.smartWallet),
+  //     toPubkey: new PublicKey('MTSLZDJppGh6xUcnrSSbSQE5fgbvCtQ496MqgQTv8c1'),
+  //     lamports: 0.1 * LAMPORTS_PER_SOL,
+  //   })
+  // })
+
+  // console.log(provider.keypair.secretKey)
+  // transaction.sign([provider.keypair]);
+
+  // const signature = await connection.sendTransaction(transaction, {
+  //   skipPreflight: false,
+  //   maxRetries: 3,
+  // });
+
+  // console.log("Signature:", signature);
+
+  res.status(200).json({ message: 'ok' })
+})
 
 app.listen(port, () => {
   console.log(`Server demo passkey đang chạy tại http://localhost:${port}`);

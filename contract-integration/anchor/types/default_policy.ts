@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/default_policy.json`.
  */
 export type DefaultPolicy = {
-  "address": "GLvpg57kZNapHhtmL4Xn5GNhQ744DgQB24nEk9SjV8tE",
+  "address": "BiE9vSdz9MidUiyjVYsu3PG4C1fbPZ8CVPADA9jRfXw7",
   "metadata": {
     "name": "defaultPolicy",
     "version": "0.1.0",
@@ -27,9 +27,8 @@ export type DefaultPolicy = {
       ],
       "accounts": [
         {
-          "name": "payer",
-          "writable": true,
-          "signer": true
+          "name": "smartWallet",
+          "writable": true
         },
         {
           "name": "walletDevice",
@@ -41,28 +40,6 @@ export type DefaultPolicy = {
         },
         {
           "name": "policy",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  108,
-                  105,
-                  99,
-                  121
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "walletDevice"
-              }
-            ]
-          }
-        },
-        {
-          "name": "newPolicy",
           "writable": true,
           "pda": {
             "seeds": [
@@ -79,21 +56,36 @@ export type DefaultPolicy = {
               },
               {
                 "kind": "account",
-                "path": "newWalletDevice"
+                "path": "smartWallet"
               }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "walletId",
+          "type": "u64"
+        },
+        {
+          "name": "passkeyPublicKey",
+          "type": {
+            "array": [
+              "u8",
+              33
             ]
           }
         },
         {
-          "name": "lazorkit",
-          "address": "8oCYt9kQ5t6ZRhsXLH8x3i6HTaTqrjDrLQ6PP1hUZfya"
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
+          "name": "newPasskeyPublicKey",
+          "type": {
+            "array": [
+              "u8",
+              33
+            ]
+          }
         }
-      ],
-      "args": []
+      ]
     },
     {
       "name": "checkPolicy",
@@ -117,35 +109,67 @@ export type DefaultPolicy = {
         },
         {
           "name": "policy",
-          "writable": true
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "smartWallet"
+              }
+            ]
+          }
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "walletId",
+          "type": "u64"
+        },
+        {
+          "name": "passkeyPublicKey",
+          "type": {
+            "array": [
+              "u8",
+              33
+            ]
+          }
+        }
+      ]
     },
     {
-      "name": "initPolicy",
+      "name": "destroyPolicy",
       "discriminator": [
-        45,
+        254,
         234,
-        110,
-        100,
-        209,
-        146,
-        191,
-        86
+        136,
+        124,
+        90,
+        28,
+        94,
+        138
       ],
       "accounts": [
         {
-          "name": "payer",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "smartWallet"
+          "name": "smartWallet",
+          "writable": true
         },
         {
           "name": "walletDevice",
           "signer": true
+        },
+        {
+          "name": "newWalletDevice",
+          "writable": true
         },
         {
           "name": "policy",
@@ -165,21 +189,167 @@ export type DefaultPolicy = {
               },
               {
                 "kind": "account",
-                "path": "walletDevice"
+                "path": "smartWallet"
               }
             ]
           }
+        }
+      ],
+      "args": [
+        {
+          "name": "walletId",
+          "type": "u64"
         },
         {
-          "name": "lazorkit",
-          "address": "8oCYt9kQ5t6ZRhsXLH8x3i6HTaTqrjDrLQ6PP1hUZfya"
+          "name": "passkeyPublicKey",
+          "type": {
+            "array": [
+              "u8",
+              33
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "initPolicy",
+      "discriminator": [
+        45,
+        234,
+        110,
+        100,
+        209,
+        146,
+        191,
+        86
+      ],
+      "accounts": [
+        {
+          "name": "smartWallet",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "walletDevice",
+          "writable": true
+        },
+        {
+          "name": "policy",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "smartWallet"
+              }
+            ]
+          }
         },
         {
           "name": "systemProgram",
           "address": "11111111111111111111111111111111"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "walletId",
+          "type": "u64"
+        },
+        {
+          "name": "passkeyPublicKey",
+          "type": {
+            "array": [
+              "u8",
+              33
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "removeDevice",
+      "discriminator": [
+        42,
+        19,
+        175,
+        5,
+        67,
+        100,
+        238,
+        14
+      ],
+      "accounts": [
+        {
+          "name": "smartWallet",
+          "writable": true
+        },
+        {
+          "name": "walletDevice",
+          "signer": true
+        },
+        {
+          "name": "rmWalletDevice",
+          "writable": true
+        },
+        {
+          "name": "policy",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "smartWallet"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "walletId",
+          "type": "u64"
+        },
+        {
+          "name": "passkeyPublicKey",
+          "type": {
+            "array": [
+              "u8",
+              33
+            ]
+          }
+        },
+        {
+          "name": "removePasskeyPublicKey",
+          "type": {
+            "array": [
+              "u8",
+              33
+            ]
+          }
+        }
+      ]
     }
   ],
   "accounts": [
@@ -220,6 +390,16 @@ export type DefaultPolicy = {
       "code": 6001,
       "name": "unauthorized",
       "msg": "Unauthorized to access smart wallet"
+    },
+    {
+      "code": 6002,
+      "name": "walletDeviceAlreadyInPolicy",
+      "msg": "Wallet device already in policy"
+    },
+    {
+      "code": 6003,
+      "name": "walletDeviceNotInPolicy",
+      "msg": "Wallet device not in policy"
     }
   ],
   "types": [
@@ -233,8 +413,13 @@ export type DefaultPolicy = {
             "type": "pubkey"
           },
           {
-            "name": "walletDevice",
-            "type": "pubkey"
+            "name": "listWalletDevice",
+            "docs": [
+              "List of wallet devices associated with the smart wallet"
+            ],
+            "type": {
+              "vec": "pubkey"
+            }
           }
         ]
       }
@@ -242,15 +427,30 @@ export type DefaultPolicy = {
     {
       "name": "walletDevice",
       "docs": [
-        "Account that stores a wallet_device (passkey) used to authenticate to a smart wallet"
+        "Account that stores a wallet device (passkey) for smart wallet authentication",
+        "",
+        "Each wallet device represents a WebAuthn passkey that can be used to authenticate",
+        "transactions for a specific smart wallet. Multiple devices can be associated with",
+        "a single smart wallet for enhanced security and convenience.",
+        "",
+        "Memory layout optimized for better cache performance:",
+        "- Group related fields together",
+        "- Align fields to natural boundaries"
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "passkeyPubkey",
+            "name": "bump",
             "docs": [
-              "The public key of the passkey for this wallet_device that can authorize transactions"
+              "Bump seed for PDA derivation and verification (1 byte)"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "passkeyPublicKey",
+            "docs": [
+              "Public key of the WebAuthn passkey for transaction authorization (33 bytes)"
             ],
             "type": {
               "array": [
@@ -260,25 +460,18 @@ export type DefaultPolicy = {
             }
           },
           {
-            "name": "smartWallet",
+            "name": "smartWalletAddress",
             "docs": [
-              "The smart wallet this wallet_device belongs to"
+              "Smart wallet address this device is associated with (32 bytes)"
             ],
             "type": "pubkey"
           },
           {
             "name": "credentialId",
             "docs": [
-              "The credential ID this wallet_device belongs to"
+              "Unique credential ID from WebAuthn registration (variable length, max 256 bytes)"
             ],
             "type": "bytes"
-          },
-          {
-            "name": "bump",
-            "docs": [
-              "Bump seed for PDA derivation"
-            ],
-            "type": "u8"
           }
         ]
       }

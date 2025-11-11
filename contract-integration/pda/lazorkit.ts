@@ -5,9 +5,11 @@ import { Buffer } from 'buffer';
 export const CONFIG_SEED = Buffer.from('config');
 export const POLICY_PROGRAM_REGISTRY_SEED = Buffer.from('policy_registry');
 export const SMART_WALLET_SEED = Buffer.from('smart_wallet');
-export const SMART_WALLET_DATA_SEED = Buffer.from('smart_wallet_data');
+export const SMART_WALLET_CONFIG_SEED = Buffer.from('smart_wallet_config');
 export const WALLET_DEVICE_SEED = Buffer.from('wallet_device');
-export const TRANSACTION_SESSION_SEED = Buffer.from('transaction_session');
+export const CHUNK_SEED = Buffer.from('chunk');
+export const PERMISSION_SEED = Buffer.from('permission');
+export const LAZORKIT_VAULT_SEED = Buffer.from('lazorkit_vault');
 
 export function deriveConfigPda(programId: PublicKey): PublicKey {
   return PublicKey.findProgramAddressSync([CONFIG_SEED], programId)[0];
@@ -22,6 +24,16 @@ export function derivePolicyProgramRegistryPda(
   )[0];
 }
 
+export function deriveLazorkitVaultPda(
+  programId: PublicKey,
+  index: number
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [LAZORKIT_VAULT_SEED, Buffer.from([index])],
+    programId
+  )[0];
+}
+
 export function deriveSmartWalletPda(
   programId: PublicKey,
   walletId: BN
@@ -32,12 +44,12 @@ export function deriveSmartWalletPda(
   )[0];
 }
 
-export function deriveSmartWalletDataPda(
+export function deriveSmartWalletConfigPda(
   programId: PublicKey,
   smartWallet: PublicKey
 ): PublicKey {
   return PublicKey.findProgramAddressSync(
-    [SMART_WALLET_DATA_SEED, smartWallet.toBuffer()],
+    [SMART_WALLET_CONFIG_SEED, smartWallet.toBuffer()],
     programId
   )[0];
 }
@@ -66,17 +78,28 @@ export function deriveWalletDevicePda(
   );
 }
 
-export function deriveTransactionSessionPda(
+export function deriveChunkPda(
   programId: PublicKey,
   smartWallet: PublicKey,
   lastNonce: BN
 ): PublicKey {
   return PublicKey.findProgramAddressSync(
     [
-      TRANSACTION_SESSION_SEED,
+      CHUNK_SEED,
       smartWallet.toBuffer(),
       lastNonce.toArrayLike(Buffer, 'le', 8),
     ],
+    programId
+  )[0];
+}
+
+export function derivePermissionPda(
+  programId: PublicKey,
+  smartWallet: PublicKey,
+  ephemeralPublicKey: PublicKey
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [PERMISSION_SEED, smartWallet.toBuffer(), ephemeralPublicKey.toBuffer()],
     programId
   )[0];
 }
