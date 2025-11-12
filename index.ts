@@ -11,10 +11,12 @@ import User from './model/User';
 import mongoose from 'mongoose';
 import * as config from './config'
 import base64url from 'base64url'
-import { Connection, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction } from '@solana/web3.js';
+import { Connection, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
 import { LazorkitClient } from './contract-integration/index';
-import { createProviderFromMnemonic, extractCompressedPubkey } from './utils';
+import { bufferToBase64url, createProviderFromMnemonic, extractCompressedPubkey } from './utils';
 import { BN } from 'bn.js';
+import { sha256 } from 'js-sha256';
+import { lookupTableAccount } from './contract-integration/alt';
 
 const port = 8888;
 const rpName = 'android_app';
@@ -166,6 +168,7 @@ app.post('/create-smart-wallet', async (req, res) => {
     const provider = await createProviderFromMnemonic(config.MNEMONIC, config.RPC_URL_SOLANA)
     const connection = new Connection(config.RPC_URL_SOLANA);
     const lazorkitClient = new LazorkitClient(connection);
+
     let { transaction,
       smartWalletId,
       smartWallet
@@ -174,7 +177,7 @@ app.post('/create-smart-wallet', async (req, res) => {
         payer: provider.keypair.publicKey,
         credentialIdBase64: credential.id,
         passkeyPublicKey: extractCompressedPubkey(credential.publicKey) as any,
-        amount: new BN(0)
+        amount: new BN(0.02 * LAMPORTS_PER_SOL)
       },
       {
         useVersionedTransaction: false
@@ -182,7 +185,6 @@ app.post('/create-smart-wallet', async (req, res) => {
     );
 
     transaction = transaction as Transaction;
-    console.log(smartWallet, smartWalletId)
 
     transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
     transaction.feePayer = provider.keypair.publicKey;
@@ -215,12 +217,13 @@ app.post('/send-SOL/options', async (req, res) => {
   const connection = new Connection(config.RPC_URL_SOLANA);
   const lazorkitClient = new LazorkitClient(connection);
 
+  const timestamp = Math.floor(Date.now() / 1000);
   const message = await lazorkitClient.buildAuthorizationMessage({
     payer: provider.keypair.publicKey,
     smartWallet: new PublicKey(user.smartWallet),
     passkeyPublicKey: extractCompressedPubkey(userCredentials[0].publicKey) as any,
     action: {
-      type: 'execute_transaction',
+      type: 'execute',
       args: {
         policyInstruction: null,
         cpiInstruction: SystemProgram.transfer({
@@ -229,7 +232,8 @@ app.post('/send-SOL/options', async (req, res) => {
           lamports: 0.1 * LAMPORTS_PER_SOL,
         }),
       },
-    } as any
+    } as any,
+    timestampExecute: timestamp
   })
 
   let allowCredentials: any[] = [];
@@ -240,101 +244,121 @@ app.post('/send-SOL/options', async (req, res) => {
     })
   }
 
-  const optionsGen = await generateAuthenticationOptions({
-    rpID,
-    allowCredentials,
-    userVerification: 'preferred',
-    challenge: message.toString(),
-    timeout: 60000
-  })
-
   const options = {
-    challenge: optionsGen.challenge,
-    timeout: optionsGen.timeout,
-    rpId: optionsGen.rpId,
-    allowCredentials: optionsGen.allowCredentials,
-    userVerification: optionsGen.userVerification,
+    challenge: bufferToBase64url(message),
+    timeout: 60000,
+    rpId: rpID,
+    allowCredentials: allowCredentials,
+    userVerification: 'preferred',
   }
+
+  console.log('challenge send-SOL: ', options.challenge)
 
   await User.findOneAndUpdate(
     { username: username },
-    { currentChallenge: options.challenge }
+    { currentChallenge: options.challenge, timestampExecute: timestamp }
   )
 
   res.status(200).json(options)
 })
 
 app.post('/send-SOL/verify', async (req, res) => {
-  const { credential } = req.body;
+  try {
+    const { credential } = req.body;
 
-  const savedCredential = await Credential.findOne({ id: credential.id });
+    const savedCredential = await Credential.findOne({ id: credential.id });
 
-  if (!savedCredential) {
-    return res.status(400).json({ error: 'Credential not found' });
+    if (!savedCredential) {
+      return res.status(400).json({ error: 'Credential not found' });
+    }
+
+    const user = await User.findOne({ username: savedCredential.username })
+    if (!user) {
+      return res.status(400).json({ error: 'User for credential not found' });
+    }
+
+    const expectedChallenge = user.currentChallenge;
+
+    if (!expectedChallenge) {
+      return res.status(400).json({ error: 'No challenge found' });
+    }
+
+
+    const verification = await verifyAuthenticationResponse({
+      response: credential,
+      expectedChallenge: expectedChallenge,
+      expectedOrigin: [
+        `https://${rpID}`,
+        `android:apk-key-hash:${base64url(Buffer.from(sha256_cert_fingerprints.replace(/:/g, ''), 'hex'))}`
+      ],
+      expectedRPID: rpID,
+      credential: {
+        id: savedCredential.id,
+        publicKey: Buffer.from(savedCredential.publicKey, 'base64url'),
+        counter: savedCredential.counter,
+      },
+      requireUserVerification: true,
+    });
+
+    if (!verification.verified) res.status(400).json({ error: "not verify" })
+
+    const provider = await createProviderFromMnemonic(config.MNEMONIC, config.RPC_URL_SOLANA)
+    const connection = new Connection(config.RPC_URL_SOLANA);
+    const lazorkitClient = new LazorkitClient(connection);
+
+    const refferal = await lazorkitClient.getReferralAccount(new PublicKey(user.smartWallet))
+    console.log('refferal: ', refferal)
+
+    let ins = await lazorkitClient.executeIns(
+      {
+        payer: provider.keypair.publicKey,
+        smartWallet: new PublicKey(user.smartWallet),
+        passkeySignature: {
+          passkeyPublicKey: extractCompressedPubkey(savedCredential.publicKey) as any,
+          signature64: credential.response.signature,
+          clientDataJsonRaw64: credential.response.clientDataJSON,
+          authenticatorDataRaw64: credential.response.authenticatorData,
+          signCount: credential.response.signCount
+        },
+        policyInstruction: null,
+        cpiInstruction: SystemProgram.transfer({
+          fromPubkey: new PublicKey(user.smartWallet),
+          toPubkey: new PublicKey('MTSLZDJppGh6xUcnrSSbSQE5fgbvCtQ496MqgQTv8c1'),
+          lamports: 0.1 * LAMPORTS_PER_SOL,
+        }),
+        timestamp: new BN(user.timestampExecute)
+      },
+      {
+        useVersionedTransaction: false
+      }
+    );
+
+    // transaction = transaction as Transaction;
+
+    // transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+    // transaction.feePayer = provider.keypair.publicKey;
+
+    // const txid = await sendAndConfirmTransaction(connection, transaction, [provider.keypair]);
+    // console.log("Sent send-SOL:", txid);
+
+    const altAccount = await lookupTableAccount.getTable();
+
+    const messageV0 = new TransactionMessage({
+      payerKey: provider.keypair.publicKey,
+      recentBlockhash: (await connection.getLatestBlockhash()).blockhash,
+      instructions: ins
+    }).compileToV0Message([altAccount]);
+
+    const txV0 = new VersionedTransaction(messageV0);
+
+    const txid = await provider.provider.sendAndConfirm(txV0, [])
+    console.log("Sent send-SOL:", txid);
+
+    res.status(200).json({ message: 'ok' })
+  } catch (err: any) {
+    console.log(err)
+    res.status(500).json({ message: 'vcl' })
   }
-
-  const user = await User.findOne({ username: savedCredential.username })
-  if (!user) {
-    return res.status(400).json({ error: 'User for credential not found' });
-  }
-
-  const expectedChallenge = user.currentChallenge;
-
-  if (!expectedChallenge) {
-    return res.status(400).json({ error: 'No challenge found' });
-  }
-
-
-  const verification = await verifyAuthenticationResponse({
-    response: credential,
-    expectedChallenge: expectedChallenge,
-    expectedOrigin: [
-      `https://${rpID}`,
-      `android:apk-key-hash:${base64url(Buffer.from(sha256_cert_fingerprints.replace(/:/g, ''), 'hex'))}`
-    ],
-    expectedRPID: rpID,
-    credential: {
-      id: savedCredential.id,
-      publicKey: Buffer.from(savedCredential.publicKey, 'base64url'),
-      counter: savedCredential.counter,
-    },
-    requireUserVerification: true,
-  });
-
-  if (!verification.verified) res.status(400).json({ error: "not verify" })
-
-  const provider = await createProviderFromMnemonic(config.MNEMONIC, config.RPC_URL_SOLANA)
-  const connection = new Connection(config.RPC_URL_SOLANA);
-  const lazorkitClient = new LazorkitClient(connection);
-
-  // const transaction = await lazorkitClient.executeTransactionWithAuth({
-  //   payer: provider.keypair.publicKey,
-  //   smartWallet: new PublicKey(user.smartWallet),
-  //   passkeySignature: {
-  //     passkeyPubkey: extractCompressedPubkey(savedCredential.publicKey) as any,
-  //     signature64: credential.response.signature,
-  //     clientDataJsonRaw64: credential.response.clientDataJSON,
-  //     authenticatorDataRaw64: credential.response.authenticatorData,
-  //   },
-  //   policyInstruction: null,
-  //   cpiInstruction: SystemProgram.transfer({
-  //     fromPubkey: new PublicKey(user.smartWallet),
-  //     toPubkey: new PublicKey('MTSLZDJppGh6xUcnrSSbSQE5fgbvCtQ496MqgQTv8c1'),
-  //     lamports: 0.1 * LAMPORTS_PER_SOL,
-  //   })
-  // })
-
-  // console.log(provider.keypair.secretKey)
-  // transaction.sign([provider.keypair]);
-
-  // const signature = await connection.sendTransaction(transaction, {
-  //   skipPreflight: false,
-  //   maxRetries: 3,
-  // });
-
-  // console.log("Signature:", signature);
-
-  res.status(200).json({ message: 'ok' })
 })
 
 app.listen(port, () => {

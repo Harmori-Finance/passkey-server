@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/default_policy.json`.
  */
 export type DefaultPolicy = {
-  "address": "BiE9vSdz9MidUiyjVYsu3PG4C1fbPZ8CVPADA9jRfXw7",
+  "address": "78swgvAWkyabhWqTg1pQnS4n44AM7LDta4RvJgtJVCZr",
   "metadata": {
     "name": "defaultPolicy",
     "version": "0.1.0",

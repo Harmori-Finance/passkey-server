@@ -2,7 +2,7 @@ import { Connection, Keypair, Transaction, VersionedTransaction } from "@solana/
 import * as bip39 from "bip39";
 import { derivePath } from "ed25519-hd-key";
 import * as cbor from "cbor";
-import { AnchorProvider } from "@coral-xyz/anchor";
+import { AnchorProvider, Wallet } from "@coral-xyz/anchor";
 
 export async function createProviderFromMnemonic(mnemonic: string, rpcUrl: string) {
   const seed = await bip39.mnemonicToSeed(mnemonic);
@@ -12,28 +12,11 @@ export async function createProviderFromMnemonic(mnemonic: string, rpcUrl: strin
 
   const connection = new Connection(rpcUrl, "confirmed");
 
-  const wallet = {
-    publicKey: keypair.publicKey,
-    signTransaction: async (tx: Transaction | VersionedTransaction) => {
-      if (tx instanceof VersionedTransaction) {
-        tx.sign([keypair]);
-      } else if (tx instanceof Transaction) {
-        tx.partialSign(keypair);
-      } else {
-        throw new Error("Unsupported transaction type");
-      }
-      return tx;
-    },
-    signAllTransactions: async (txs: any[]) => {
-      return txs.map((tx) => {
-        if ("sign" in tx) tx.sign([keypair]);
-        else if ("partialSign" in tx) tx.partialSign(keypair);
-        return tx;
-      });
-    },
-  };
+  const wallet = new Wallet(keypair)
 
-  return { wallet, keypair, connection };
+  const provider = new AnchorProvider(connection, wallet, { commitment: "confirmed" })
+
+  return { provider, wallet, keypair, connection };
 }
 
 export function base64urlToBuffer(base64url: string): Buffer {
@@ -42,6 +25,14 @@ export function base64urlToBuffer(base64url: string): Buffer {
     .replace(/_/g, "/")
     .padEnd(Math.ceil(base64url.length / 4) * 4, "=");
   return Buffer.from(base64, "base64");
+}
+
+export function bufferToBase64url(buffer: Buffer) {
+  return buffer
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '')
+    .replace(/=+$/, '');
 }
 
 export function extractCompressedPubkey(publicKeyBase64Url: string): Uint8Array {

@@ -191,8 +191,7 @@ const encodeMessage = <T>(messageType: string, data: T): Buffer => {
     return Buffer.from(encoded);
   } catch (error) {
     throw new Error(
-      `Failed to encode ${messageType}: ${
-        error instanceof Error ? error.message : 'Unknown error'
+      `Failed to encode ${messageType}: ${error instanceof Error ? error.message : 'Unknown error'
       }`
     );
   }
@@ -228,6 +227,11 @@ export function buildExecuteMessage(
 
   const timestampBuffer = Buffer.alloc(8);
   timestampBuffer.writeBigInt64LE(BigInt(timestamp.toString()), 0);
+
+  console.log('policyHash: ', policyHash)
+  console.log('cpiHash: ', cpiHash)
+  console.log('timestamp: ', timestamp.toNumber())
+  console.log('nonce: ', nonce.toNumber())
 
   const finalData = Buffer.concat([
     nonceBuffer,

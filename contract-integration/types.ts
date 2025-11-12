@@ -86,6 +86,7 @@ export interface PasskeySignature {
   signature64: string;
   clientDataJsonRaw64: string;
   authenticatorDataRaw64: string;
+  signCount?: number;
 }
 
 export interface NewPasskeyDevice {

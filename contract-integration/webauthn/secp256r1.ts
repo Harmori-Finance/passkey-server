@@ -165,6 +165,7 @@ export function buildSecp256r1VerifyIx(
     // Write all components
     instructionData.set(bytesOf(offsets), SIGNATURE_OFFSETS_START);
     instructionData.set(pubkey, publicKeyOffset);
+    // instructionData.set(Uint8Array.from(pubkey), publicKeyOffset);
     instructionData.set(signature, signatureOffset);
     instructionData.set(message, messageDataOffset);
 
