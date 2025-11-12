@@ -23,6 +23,7 @@ const rpName = 'android_app';
 const rpID = config.RPID;
 const sha256_cert_fingerprints = config.SHA256_CERT_FINGERPRINTS
 
+
 mongoose.connect(config.MONGO_URL, {
   dbName: config.MONGO_DB_NAME,
   user: config.MONGO_USERNAME,
