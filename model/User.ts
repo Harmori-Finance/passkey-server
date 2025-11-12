@@ -5,7 +5,7 @@ interface IUser {
   currentChallenge?: string;
   smartWallet: string;
   smartWalletId: number;
-  timestampExecute: number;
+  executeData: any;
 }
 
 export const UserSchema = new mongoose.Schema<IUser>({
@@ -13,7 +13,7 @@ export const UserSchema = new mongoose.Schema<IUser>({
   currentChallenge: { type: String },
   smartWallet: { type: String },
   smartWalletId: { type: Number },
-  timestampExecute: { type: Number }
+  executeData: { type: Object }
 })
 
 export default mongoose.model<IUser>("User", UserSchema, "user");

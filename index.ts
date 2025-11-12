@@ -58,6 +58,20 @@ app.get('/.well-known/assetlinks.json', (_req, res) => {
   res.json(assetLinks);
 });
 
+app.get('/user/info/smart-wallet', async (req, res) => {
+  try {
+    const { username } = req.query;
+    const user = await User.findOne({ username: username })
+    if (!user) {
+      res.status(400).json({ error: 'user not yet register' })
+    }
+    res.status(200).json({ smartWallet: user.smartWallet })
+  } catch (err: any) {
+    console.log(err);
+    res.status(500).json({ error: err.toString() })
+  }
+})
+
 app.post('/register/challenge', async (req, res) => {
   const { username } = req.body;
 
@@ -199,15 +213,15 @@ app.post('/create-smart-wallet', async (req, res) => {
       { username: username },
       { smartWallet: String(smartWallet), smartWalletId: Number(smartWalletId) }
     )
-    res.status(200).json({ message: 'ok' })
+    res.status(200).json({ smartWallet: smartWallet, txId: txid })
   } catch (err: any) {
     console.log(err);
-    res.status(500).json({ message: 'vcl' })
+    res.status(500).json({ error: err.toString() })
   }
 })
 
 app.post('/send-SOL/options', async (req, res) => {
-  const { username } = req.body;
+  const { username, amount, toAddress } = req.body;
 
   const user = await User.findOne({ username: username })
   const userCredentials = await Credential.find({ username: username })
@@ -229,8 +243,8 @@ app.post('/send-SOL/options', async (req, res) => {
         policyInstruction: null,
         cpiInstruction: SystemProgram.transfer({
           fromPubkey: new PublicKey(user.smartWallet),
-          toPubkey: new PublicKey('MTSLZDJppGh6xUcnrSSbSQE5fgbvCtQ496MqgQTv8c1'),
-          lamports: 0.1 * LAMPORTS_PER_SOL,
+          toPubkey: new PublicKey(toAddress),
+          lamports: Number(amount) * LAMPORTS_PER_SOL,
         }),
       },
     } as any,
@@ -257,7 +271,15 @@ app.post('/send-SOL/options', async (req, res) => {
 
   await User.findOneAndUpdate(
     { username: username },
-    { currentChallenge: options.challenge, timestampExecute: timestamp }
+    {
+      currentChallenge: options.challenge,
+      executeData: {
+        timestamp: timestamp,
+        type: 'send-SOL',
+        amount: amount,
+        toAddress: toAddress
+      }
+    }
   )
 
   res.status(200).json(options)
@@ -324,23 +346,15 @@ app.post('/send-SOL/verify', async (req, res) => {
         policyInstruction: null,
         cpiInstruction: SystemProgram.transfer({
           fromPubkey: new PublicKey(user.smartWallet),
-          toPubkey: new PublicKey('MTSLZDJppGh6xUcnrSSbSQE5fgbvCtQ496MqgQTv8c1'),
-          lamports: 0.1 * LAMPORTS_PER_SOL,
+          toPubkey: new PublicKey(user.executeData.toAddress),
+          lamports: Number(user.executeData.amount) * LAMPORTS_PER_SOL,
         }),
-        timestamp: new BN(user.timestampExecute)
+        timestamp: new BN(user.executeData.timestamp)
       },
       {
         useVersionedTransaction: false
       }
     );
-
-    // transaction = transaction as Transaction;
-
-    // transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-    // transaction.feePayer = provider.keypair.publicKey;
-
-    // const txid = await sendAndConfirmTransaction(connection, transaction, [provider.keypair]);
-    // console.log("Sent send-SOL:", txid);
 
     const altAccount = await lookupTableAccount.getTable();
 
@@ -355,14 +369,19 @@ app.post('/send-SOL/verify', async (req, res) => {
     const txid = await provider.provider.sendAndConfirm(txV0, [])
     console.log("Sent send-SOL:", txid);
 
-    res.status(200).json({ message: 'ok' })
+    await User.findOneAndUpdate(
+      { username: user.username },
+      { executeData: {} }
+    )
+
+    res.status(200).json({ txId: txid })
   } catch (err: any) {
     console.log(err)
-    res.status(500).json({ message: 'vcl' })
+    res.status(500).json({ error: err.toString() })
   }
 })
 
 app.listen(port, () => {
-  console.log(`Server demo passkey đang chạy tại http://localhost:${port}`);
+  console.log(`Server demo passkey running http://localhost:${port}`);
   console.log(`RP ID: ${rpID}`);
 });
