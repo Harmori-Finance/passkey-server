@@ -20,7 +20,7 @@ import { lookupTableAccount } from './contract-integration/alt';
 
 const port = 8888;
 const rpName = 'android_app';
-const rpID = 'unmumbling-untechnical-andera.ngrok-free.dev';
+const rpID = config.RPID;
 const sha256_cert_fingerprints = config.SHA256_CERT_FINGERPRINTS
 
 mongoose.connect(config.MONGO_URL, {
