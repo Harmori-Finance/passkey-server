@@ -22,7 +22,7 @@ const port = 8888;
 const rpName = 'android_app';
 const rpID = config.RPID;
 const sha256_cert_fingerprints = config.SHA256_CERT_FINGERPRINTS
-
+const init_amount_sw = config.INIT_AMOUNT_SMART_WALLET
 
 mongoose.connect(config.MONGO_URL, {
   dbName: config.MONGO_DB_NAME,
@@ -192,7 +192,7 @@ app.post('/create-smart-wallet', async (req, res) => {
         payer: provider.keypair.publicKey,
         credentialIdBase64: credential.id,
         passkeyPublicKey: extractCompressedPubkey(credential.publicKey) as any,
-        amount: new BN(0.02 * LAMPORTS_PER_SOL)
+        amount: new BN(init_amount_sw * LAMPORTS_PER_SOL)
       },
       {
         useVersionedTransaction: false

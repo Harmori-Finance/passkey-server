@@ -13,3 +13,5 @@ export const RPC_URL_SOLANA = process.env.RPC_URL_SOLANA ?? "";
 export const SHA256_CERT_FINGERPRINTS = process.env.SHA256_CERT_FINGERPRINTS ?? "";
 
 export const RPID = process.env.RPID ?? "";
+
+export const INIT_AMOUNT_SMART_WALLET = Number(process.env.INIT_AMOUNT_SMART_WALLET ?? "0")
