@@ -43,7 +43,7 @@ async function createAlt() {
   (await provider.sendAndConfirm(tx, []));
 }
 
-async function addAddressToAlt(account: PublicKey[]) {
+export async function addAddressToAlt(account: PublicKey[]) {
   const extendIx = AddressLookupTableProgram.extendLookupTable({
     payer: provider.publicKey,
     authority: provider.publicKey,
