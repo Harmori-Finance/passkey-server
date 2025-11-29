@@ -12,6 +12,7 @@ import { addAddressToAlt, lookupTableAccount } from "../contract-integration/alt
 import { ASSOCIATED_TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction, createTransferInstruction, getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { symbolToMint } from "../config/constant";
 import { web3 } from "@coral-xyz/anchor";
+import { isoBase64URL } from '@simplewebauthn/server/helpers';
 
 const rpID = config.RPID;
 const sha256_cert_fingerprints = config.SHA256_CERT_FINGERPRINTS
@@ -127,8 +128,9 @@ export class SendTokenController {
       })
     }
 
+    const challenge = isoBase64URL.fromBuffer(new Uint8Array(message));
     const options = {
-      challenge: bufferToBase64url(message),
+      challenge: challenge,
       timeout: 60000,
       rpId: rpID,
       allowCredentials: allowCredentials,
@@ -174,7 +176,6 @@ export class SendTokenController {
       if (!expectedChallenge) {
         return res.status(400).json({ error: 'No challenge found' });
       }
-
 
       const verification = await verifyAuthenticationResponse({
         response: credential,
@@ -229,13 +230,12 @@ export class SendTokenController {
         }
       );
 
-      // // add smart wallet to alt
-      // try {
-      //   await addAddressToAlt([new PublicKey(user.smartWallet)]);
-      //   await addAddressToAlt([new PublicKey(user.executeData.toAddress)]);
-      // } catch (err) {
-      //   console.log('Add alt error: ', err)
-      // }
+      // add smart wallet to alt
+      try {
+        await addAddressToAlt([new PublicKey(user.smartWallet), new PublicKey(user.executeData.toAddress)]);
+      } catch (err) {
+        console.log('Add alt error: ', err)
+      }
 
       const altAccount = await lookupTableAccount.getTable();
 

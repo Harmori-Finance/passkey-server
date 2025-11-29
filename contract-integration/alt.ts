@@ -12,9 +12,11 @@ import bs58 from "bs58";
 
 dotenv.config();
 
-const secretKeyBase58 = process.env.SECRET_KEY;
-const secret_key = bs58.decode(secretKeyBase58);
-const signerKeypair = Keypair.fromSecretKey(secret_key)
+// const secretKeyBase58 = process.env.SECRET_KEY2;
+// const secret_key = bs58.decode(secretKeyBase58);
+// const signerKeypair = Keypair.fromSecretKey(secret_key)
+const secret_key: number[] = JSON.parse(process.env.SECRET_KEY2);
+const signerKeypair = Keypair.fromSecretKey(Uint8Array.from(secret_key))
 const connection = new Connection("https://api.devnet.solana.com", "confirmed");
 const wallet = new Wallet(signerKeypair)
 const provider = new AnchorProvider(connection, wallet, { commitment: "confirmed" })
@@ -44,6 +46,7 @@ async function createAlt() {
 }
 
 export async function addAddressToAlt(account: PublicKey[]) {
+  console.log('wallet alt address: ', wallet.publicKey);
   const extendIx = AddressLookupTableProgram.extendLookupTable({
     payer: provider.publicKey,
     authority: provider.publicKey,
